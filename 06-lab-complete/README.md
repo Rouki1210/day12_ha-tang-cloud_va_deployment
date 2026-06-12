@@ -1,100 +1,117 @@
-# Lab 12 — Complete Production Agent
+# Part 6 - Simple Production Agent
 
-Kết hợp TẤT CẢ những gì đã học trong 1 project hoàn chỉnh.
+Agent FastAPI don gian ket hop cac noi dung chinh cua Day 12:
 
-## Checklist Deliverable
+- API key authentication
+- Redis conversation history
+- Rate limiting theo API key
+- Monthly cost guard
+- Health va readiness endpoints
+- Structured JSON application logs
+- Multi-stage Docker image va non-root user
 
-- [x] Dockerfile (multi-stage, < 500 MB)
-- [x] docker-compose.yml (agent + redis)
-- [x] .dockerignore
-- [x] Health check endpoint (`GET /health`)
-- [x] Readiness endpoint (`GET /ready`)
-- [x] API Key authentication
-- [x] Rate limiting
-- [x] Cost guard
-- [x] Config từ environment variables
-- [x] Structured logging
-- [x] Graceful shutdown
-- [x] Public URL ready (Railway / Render config)
+## Architecture
 
----
-
-## Cấu Trúc
-
-```
-06-lab-complete/
-├── app/
-│   ├── main.py         # Entry point — kết hợp tất cả
-│   ├── config.py       # 12-factor config
-│   ├── auth.py         # API Key + JWT
-│   ├── rate_limiter.py # Rate limiting
-│   └── cost_guard.py   # Budget protection
-├── Dockerfile          # Multi-stage, production-ready
-├── docker-compose.yml  # Full stack
-├── railway.toml        # Deploy Railway
-├── render.yaml         # Deploy Render
-├── .env.example        # Template
-├── .dockerignore
-└── requirements.txt
+```text
+Client -> FastAPI Agent -> Redis
 ```
 
----
+## Run with Docker
 
-## Chạy Local
-
-```bash
-# 1. Setup
-cp .env.example .env
-
-# 2. Chạy với Docker Compose
-docker compose up
-
-# 3. Test
-curl http://localhost/health
-
-# 4. Lấy API key từ .env, test endpoint
-API_KEY=$(grep AGENT_API_KEY .env | cut -d= -f2)
-curl -H "X-API-Key: $API_KEY" \
-     -X POST http://localhost/ask \
-     -H "Content-Type: application/json" \
-     -d '{"question": "What is deployment?"}'
+```powershell
+cd 06-lab-complete
+$env:AGENT_API_KEY="dev-secret-key"
+docker compose up --build
 ```
 
----
+Test:
 
-## Deploy Railway (< 5 phút)
+```powershell
+curl.exe http://localhost:8000/health
+curl.exe http://localhost:8000/ready
 
-```bash
-# Cài Railway CLI
-npm i -g @railway/cli
-
-# Login và deploy
-railway login
-railway init
-railway variables set OPENAI_API_KEY=sk-...
-railway variables set AGENT_API_KEY=your-secret-key
-railway up
-
-# Nhận public URL!
-railway domain
+curl.exe -X POST http://localhost:8000/ask `
+  -H "X-API-Key: dev-secret-key" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"What is Docker?"}'
 ```
 
----
+Lay `session_id` tu response va tiep tuc conversation:
 
-## Deploy Render
+```powershell
+curl.exe -X POST http://localhost:8000/ask `
+  -H "X-API-Key: dev-secret-key" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Tell me more","session_id":"SESSION_ID"}'
 
-1. Push repo lên GitHub
-2. Render Dashboard → New → Blueprint
-3. Connect repo → Render đọc `render.yaml`
-4. Set secrets: `OPENAI_API_KEY`, `AGENT_API_KEY`
-5. Deploy → Nhận URL!
-
----
-
-## Kiểm Tra Production Readiness
-
-```bash
-python check_production_ready.py
+curl.exe http://localhost:8000/history/SESSION_ID `
+  -H "X-API-Key: dev-secret-key"
 ```
 
-Script này kiểm tra tất cả items trong checklist và báo cáo những gì còn thiếu.
+Stop:
+
+```powershell
+docker compose down
+```
+
+## Run Tests
+
+```powershell
+python -m unittest -v test_agent.py
+```
+
+## Deploy to Railway
+
+This repository is a monorepo, so the Railway service must use
+`/06-lab-complete` as its root directory.
+
+1. Push the repository to GitHub. Do not commit `.env.local`.
+2. In Railway, create a project and choose **Deploy from GitHub repo**.
+3. Open the application service, then set **Settings > Source > Root Directory**
+   to `/06-lab-complete`.
+4. On the project canvas, select **+ New > Database > Redis**.
+5. In the application service's **Variables** tab, add:
+
+```env
+ENVIRONMENT=production
+AGENT_API_KEY=replace-with-a-long-random-secret
+REDIS_URL=${{Redis.REDIS_URL}}
+APP_NAME=Noir AI
+APP_VERSION=1.0.0
+LLM_MODEL=mock-llm
+RATE_LIMIT_PER_MINUTE=10
+MONTHLY_BUDGET_USD=10.0
+```
+
+The name `Redis` in `${{Redis.REDIS_URL}}` is case-sensitive. Change it if the
+database service has a different name. Do not define `PORT`; Railway supplies
+that variable automatically.
+
+6. Deploy the staged changes and wait until the `/ready` health check succeeds.
+7. Open **Settings > Networking > Public Networking**, then select
+   **Generate Domain**.
+8. Open the generated domain, enter the same `AGENT_API_KEY` in **Access
+   settings**, and send a message.
+
+Verify the deployment:
+
+```powershell
+curl.exe https://YOUR-DOMAIN.up.railway.app/health
+curl.exe https://YOUR-DOMAIN.up.railway.app/ready
+
+curl.exe -X POST https://YOUR-DOMAIN.up.railway.app/ask `
+  -H "X-API-Key: YOUR-AGENT-API-KEY" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"What is Docker?"}'
+```
+
+## API
+
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| GET | `/health` | No | Liveness probe |
+| GET | `/ready` | No | Redis readiness probe |
+| POST | `/ask` | API key | Ask agent and save history |
+| GET | `/history/{session_id}` | API key | Read conversation history |
+| DELETE | `/history/{session_id}` | API key | Delete conversation history |
+| GET | `/metrics` | API key | Rate and budget information |

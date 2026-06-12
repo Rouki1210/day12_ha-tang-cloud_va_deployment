@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050506">
+  <title>Noir AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=6">
+</head>
+<body>
+  <div class="ambient ambient-violet"></div>
+  <div class="ambient ambient-mint"></div>
+  <div class="noise"></div>
+
+  <main class="app-shell">
+    <aside class="brand-panel reveal">
+      <div class="brand-top">
+        <a class="brand" href="./index.html" aria-label="Noir AI home">
+          <span class="brand-mark"><span></span></span>
+          <span>Noir AI</span>
+        </a>
+        <span class="live-pill"><i></i> Online</span>
+      </div>
+
+      <div class="brand-copy">
+        <span class="eyebrow">Private intelligence</span>
+        <h1>Thoughtful answers,<br><em>without the noise.</em></h1>
+        <p>A focused conversational space backed by Redis memory, protected access and a calm, deliberate interface.</p>
+      </div>
+
+      <div class="side-footer">
+        <div class="metric-row">
+          <span>Context</span>
+          <strong>20 messages</strong>
+        </div>
+        <div class="metric-row">
+          <span>Memory</span>
+          <strong id="storageLabel">Checking...</strong>
+        </div>
+        <a id="docsLink" href="/docs" target="_blank" rel="noreferrer">API documentation <span>↗</span></a>
+      </div>
+    </aside>
+
+    <section class="chat-bezel reveal reveal-delay">
+      <div class="chat-core">
+        <header class="chat-header">
+          <div>
+            <span class="overline">New conversation</span>
+            <h2>Ask Noir</h2>
+          </div>
+          <div class="header-actions">
+            <button class="icon-button" id="settingsButton" type="button" aria-label="Open access settings" title="Access settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.42 1.42-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V19.6h-2v-.09A1.7 1.7 0 0 0 12.36 18a1.7 1.7 0 0 0-1.88.34l-.06.06L9 16.98l.06-.06A1.7 1.7 0 0 0 9.4 15a1.7 1.7 0 0 0-1.55-1.03H7.8v-2h.05A1.7 1.7 0 0 0 9.4 10.9a1.7 1.7 0 0 0-.34-1.88L9 8.96l1.42-1.42.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 13.4 6.4V6.3h2v.1a1.7 1.7 0 0 0 1.03 1.54 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.42 1.42-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1.03H21v2h-.06A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+            </button>
+            <button class="new-chat" id="newChatButton" type="button">
+              <span>New chat</span>
+              <i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="messages" id="messages" aria-live="polite">
+          <div class="welcome-state" id="welcomeState">
+            <div class="orb"><div class="orb-core"></div></div>
+            <span class="eyebrow">Ready when you are</span>
+            <h3>What are we exploring?</h3>
+            <p>Start with a question or choose a direction below.</p>
+            <div class="prompt-grid">
+              <button type="button" data-prompt="Explain Docker in simple terms">Explain Docker <span>↗</span></button>
+              <button type="button" data-prompt="What is Redis used for?">Explore Redis <span>↗</span></button>
+              <button type="button" data-prompt="How does cloud deployment work?">Cloud deployment <span>↗</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer-wrap">
+          <form class="composer" id="chatForm">
+            <textarea id="messageInput" rows="1" maxlength="1000" placeholder="Message Noir AI..." aria-label="Message"></textarea>
+            <button class="send-button" id="sendButton" type="submit" aria-label="Send message">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4.5 14-3-5.5L5 12Z"/><path d="m11.5 13.5 3-3"/></svg>
+            </button>
+          </form>
+          <p>Noir can make mistakes. Consider checking important information.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+    <button class="overlay-backdrop" id="closeSettingsArea" aria-label="Close settings"></button>
+    <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-heading">
+        <div><span class="overline">Connection</span><h2 id="settingsTitle">Access settings</h2></div>
+        <button class="icon-button" id="closeSettingsButton" type="button" aria-label="Close settings">×</button>
+      </div>
+      <label for="apiKeyInput">API key</label>
+      <div class="key-field">
+        <input id="apiKeyInput" type="password" placeholder="Enter your API key" autocomplete="off">
+        <button id="toggleKey" type="button">Show</button>
+      </div>
+      <p>The key stays in this browser tab and is sent only to this local agent.</p>
+      <button class="save-button" id="saveSettingsButton" type="button"><span>Save access</span><i>✓</i></button>
+    </section>
+  </div>
+
+  <script src="/static/app.js?v=6"></script>
+</body>
+</html>

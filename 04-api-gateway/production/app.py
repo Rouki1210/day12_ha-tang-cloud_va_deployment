@@ -157,7 +157,9 @@ async def ask_agent(
         "answer": response_text,
         "usage": {
             "requests_remaining": rate_info["remaining"],
-            "budget_remaining_usd": usage.total_cost_usd,
+            "budget_remaining_usd": max(
+                0, cost_guard.daily_budget_usd - usage.total_cost_usd
+            ),
         },
     }
 

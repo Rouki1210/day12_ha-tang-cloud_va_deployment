@@ -25,9 +25,9 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 from utils.mock_llm import ask
 
@@ -38,11 +38,11 @@ try:
     _redis = redis.from_url(REDIS_URL, decode_responses=True)
     _redis.ping()
     USE_REDIS = True
-    print("✅ Connected to Redis")
+    print("Connected to Redis")
 except Exception:
     USE_REDIS = False
     _memory_store: dict = {}
-    print("⚠️  Redis not available — using in-memory store (not scalable!)")
+    print("Redis not available - using in-memory store (not scalable)")
 
 
 logging.basicConfig(level=logging.INFO)
@@ -93,7 +93,7 @@ def append_to_history(session_id: str, role: str, content: str):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting instance {INSTANCE_ID}")
-    logger.info(f"Storage: {'Redis ✅' if USE_REDIS else 'In-memory ⚠️'}")
+    logger.info(f"Storage: {'Redis' if USE_REDIS else 'In-memory (not scalable)'}")
     yield
     logger.info(f"Instance {INSTANCE_ID} shutting down")
 
@@ -117,7 +117,7 @@ app.add_middleware(
 # ──────────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=1000)
     session_id: str | None = None  # None = tạo session mới
 
 
@@ -151,7 +151,7 @@ async def chat(body: ChatRequest):
         "session_id": session_id,
         "question": body.question,
         "answer": answer,
-        "turn": len([m for m in history if m["role"] == "user"]) + 1,
+        "turn": len([m for m in history if m["role"] == "user"]),
         "served_by": INSTANCE_ID,  # ← thấy rõ bất kỳ instance nào cũng serve được
         "storage": "redis" if USE_REDIS else "in-memory",
     }
@@ -207,11 +207,12 @@ def health():
 
 @app.get("/ready")
 def ready():
-    if USE_REDIS:
-        try:
-            _redis.ping()
-        except Exception:
-            raise HTTPException(503, "Redis not available")
+    if not USE_REDIS:
+        raise HTTPException(503, "Redis not available; instance is not stateless")
+    try:
+        _redis.ping()
+    except Exception:
+        raise HTTPException(503, "Redis not available")
     return {"ready": True, "instance": INSTANCE_ID}
 
 

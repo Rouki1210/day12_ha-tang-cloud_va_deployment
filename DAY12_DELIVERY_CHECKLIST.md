@@ -20,27 +20,50 @@ Create a file `MISSION_ANSWERS.md` with your answers to all exercises:
 ## Part 1: Localhost vs Production
 
 ### Exercise 1.1: Anti-patterns found
-1. [Your answer]
-2. [Your answer]
-...
+1. API key va database credentials bi hardcode trong source code.
+2. API key bi in ra log, co nguy co ro ri secret.
+3. Config nhu `DEBUG`, `MAX_TOKENS` va port duoc gan co dinh.
+4. Dung `print()` thay cho structured logging.
+5. Khong co health check va readiness check.
+6. Server bind vao `localhost`, nen khong nhan traffic tu ben ngoai container.
+7. Port `8000` khong doc tu environment variable `PORT`.
+8. `reload=True` luon duoc bat, khong phu hop production.
+9. Khong co lifecycle management va graceful shutdown.
+10. Input validation va API contract chua ro rang.
 
 ### Exercise 1.3: Comparison table
 | Feature | Develop | Production | Why Important? |
 |---------|---------|------------|----------------|
-| Config  | ...     | ...        | ...            |
-...
+| Config | Hardcode trong source code | Doc tu environment variables qua `config.py` | Dung cung mot codebase cho nhieu moi truong |
+| Secrets | Nam trong code va bi ghi ra log | Doc tu environment, khong log secret | Tranh lo secret va bi su dung trai phep |
+| Host | `localhost` | `0.0.0.0` | Cho phep traffic tu ben ngoai container truy cap |
+| Port | Co dinh `8000` | Doc tu `PORT` | Tuong thich voi port do cloud platform cap |
+| Health check | Khong co | Co `GET /health` | Cloud phat hien va restart instance loi |
+| Readiness check | Khong co | Co `GET /ready` | Chi nhan traffic khi ung dung da san sang |
+| Logging | `print()`, co log secret | Structured JSON logging | De monitoring va bao ve thong tin nhay cam |
+| Shutdown | Tat dot ngot | Lifespan va xu ly `SIGTERM` | Hoan tat request va cleanup truoc khi dung |
+| Debug/reload | Luon bat | Chi bat khi `DEBUG=true` | Tranh hanh vi development trong production |
+
+### Part 1 completion
+- [x] Identified development anti-patterns.
+- [x] Compared the develop and production implementations.
+- [x] Understood environment-based configuration.
+- [x] Understood health checks, readiness checks and graceful shutdown.
+- [x] Full explanations are recorded in `MISSION_ANSWERS.md`.
 
 ## Part 2: Docker
 
 ### Exercise 2.1: Dockerfile questions
-1. Base image: [Your answer]
-2. Working directory: [Your answer]
-...
+1. Base image: Develop dung `python:3.11`; production dung `python:3.11-slim` cho ca builder va runtime.
+2. Working directory: `/app`.
+3. Copy `requirements.txt` truoc de Docker tai su dung layer cai dependencies khi chi source code thay doi.
+4. `CMD` la lenh/tham so mac dinh de thay the; `ENTRYPOINT` la executable chinh cua container.
 
 ### Exercise 2.3: Image size comparison
-- Develop: [X] MB
-- Production: [Y] MB
-- Difference: [Z]%
+- Develop: chua do vi Docker CLI chua kha dung tren may.
+- Production: chua do vi Docker CLI chua kha dung tren may.
+- Difference: se cap nhat sau khi chay `docker images agent-develop agent-production`.
+- Multi-stage analysis and Compose architecture: completed in `MISSION_ANSWERS.md`.
 
 ## Part 3: Cloud Deployment
 
@@ -51,15 +74,37 @@ Create a file `MISSION_ANSWERS.md` with your answers to all exercises:
 ## Part 4: API Security
 
 ### Exercise 4.1-4.3: Test results
-[Paste your test outputs]
+- Added `04-api-gateway/production/test_advanced.py`.
+- Command: `python -m unittest -v test_advanced.py`.
+- Result: 8 tests passed.
+- Verified: 401 missing auth, 401 invalid credentials, 403 invalid token,
+  422 invalid input, 200 valid request, 429 rate limit, role-based admin
+  access, and 402 cost limit.
 
 ### Exercise 4.4: Cost guard implementation
-[Explain your approach]
+- Tracks daily input/output tokens and estimated cost per user.
+- Returns 402 when a user reaches the $1 daily demo budget.
+- Returns 503 when the service reaches the $10 global daily budget.
+- Logs a warning at 80% usage and resets records on a new day.
+- Current Part 4 demo is in-memory; the final project must use Redis and a
+  $10 monthly per-user budget.
+- Full explanation and PowerShell test commands are in `MISSION_ANSWERS.md`.
 
 ## Part 5: Scaling & Reliability
 
 ### Exercise 5.1-5.5: Implementation notes
-[Your explanations and test results]
+- Implemented liveness `/health` and readiness `/ready` behavior.
+- Readiness now returns 503 whenever Redis is unavailable or the app falls
+  back to non-scalable in-memory storage.
+- Verified graceful shutdown through Docker logs after stopping one agent.
+- Fixed conversation turn numbering and added question validation.
+- Added `05-scaling-reliability/production/test_app.py`: 8 tests passed.
+- Built `production-agent`: 244 MB disk usage, 58.1 MB content size.
+- Started Redis, Nginx and 3 healthy agent replicas with Docker Compose.
+- Stateless integration test used all 3 instances and preserved 10 messages.
+- Stopped one agent and verified all requests still succeeded through the
+  remaining 2 instances with history preserved in Redis.
+- Full commands and explanations are recorded in `MISSION_ANSWERS.md`.
 ```
 
 ---
