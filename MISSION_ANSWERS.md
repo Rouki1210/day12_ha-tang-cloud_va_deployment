@@ -108,11 +108,11 @@ docker images agent-develop agent-production
 
 #### Image size comparison
 
-- Develop: chua do tren may hien tai.
-- Production: chua do tren may hien tai.
-- Ly do: Docker CLI chua duoc cai dat hoac chua co trong `PATH`.
-- Muc tieu cua lab: image production nho hon image develop va duoi 500 MB.
-- Tai lieu tham khao uoc tinh khoang 800 MB cho develop va 160 MB cho production; day khong phai ket qua build thuc te cua may nay.
+- Develop (`my-agent:develop`): **1.66 GB**.
+- Production (`production-agent:latest`): **244 MB**.
+- Production nho hon develop khoang **1.42 GB**, giam xap xi **85%**.
+- Image production dat yeu cau duoi 500 MB nho base image `python:3.11-slim`,
+  multi-stage build va khong mang compiler/build packages vao runtime image.
 
 ### Exercise 2.4: Docker Compose architecture
 
@@ -191,7 +191,40 @@ services:
 - [x] Hieu loi ich cua multi-stage build va non-root user.
 - [x] Doc va mo ta duoc Docker Compose architecture.
 - [x] Biet dung `docker logs`, `docker compose logs` va `docker exec` de debug.
-- [ ] Build va chay container thuc te; dang bi chan vi Docker CLI chua kha dung.
+- [x] Build va chay container thuc te; production image co kich thuoc 244 MB.
+
+## Part 3: Cloud Deployment
+
+### Exercise 3.1: Railway deployment
+
+Part 4 API Gateway da duoc deploy len Railway tai:
+
+https://cloud-deployment-production-fb94.up.railway.app/
+
+Ket qua kiem tra ngay 12/06/2026:
+
+```text
+GET /health -> HTTP 200
+{"status":"ok","platform":"Railway",...}
+```
+
+Qua trinh deploy:
+
+1. Push source code len GitHub.
+2. Tao Railway project va ket noi repository.
+3. Dat root directory cua service vao thu muc ung dung can deploy.
+4. Cau hinh cac environment variables va secrets tren Railway thay vi commit file `.env`.
+5. Railway build Dockerfile, khoi dong Uvicorn bang port do bien `PORT` cung cap.
+6. Tao public domain trong **Settings > Networking > Public Networking**.
+7. Kiem tra public URL bang endpoint `/health`.
+
+### Checkpoint 3
+
+- [x] Deploy thanh cong mot FastAPI service len Railway.
+- [x] Public URL hoat dong qua HTTPS.
+- [x] Health endpoint tra HTTP 200.
+- [x] Secrets duoc cau hinh bang Railway Variables.
+- [x] Hieu Railway cap port dong qua bien `PORT`.
 
 ## Part 4: API Security
 
@@ -332,6 +365,15 @@ Thu hoi va rotate key ngay, kiem tra logs/usage de xac dinh pham vi anh huong, b
 - [x] Bo sung automated test suite; 8 tests passed.
 - [ ] Chuyen rate limiter va monthly cost guard sang Redis; day la yeu cau cua final project.
 
+### Part 4 public deployment
+
+API Gateway public URL:
+
+https://cloud-deployment-production-fb94.up.railway.app/
+
+Endpoint `/health` da duoc kiem tra va tra HTTP 200 tren Railway ngay
+12/06/2026.
+
 ## Part 5: Scaling & Reliability
 
 ### Exercise 5.1: Health and readiness checks
@@ -441,3 +483,105 @@ Sau do da dung `production-agent-2` va chay lai. Nam request van thanh cong qua 
 - [x] Xac minh history duoc bao toan qua Redis.
 - [x] Dung mot agent va xac minh service van hoat dong.
 - [x] Automated tests: 8 passed.
+
+## Part 6: Final Production Agent
+
+### Exercise 6.1: Architecture and implementation
+
+Final agent nam trong `06-lab-complete` va ket hop cac noi dung chinh cua lab:
+
+```text
+Browser / API client
+        |
+        v
+FastAPI agent on Railway
+        |
+        v
+Redis conversation, rate-limit and monthly-budget state
+```
+
+Tinh nang da hoan thanh:
+
+1. FastAPI cung cap `/health`, `/ready`, `/ask`, `/history/{session_id}` va `/metrics`.
+2. `X-API-Key` bao ve cac endpoint co du lieu va chi phi.
+3. Question duoc validate tu 1 den 1000 ky tu.
+4. Conversation history co `session_id`, gioi han 20 messages va TTL khi dung Redis.
+5. Sliding-window rate limit gioi han 10 requests/phut/API key.
+6. Monthly cost guard gioi han `$10` cho moi API key.
+7. Structured JSON logs khong ghi noi dung API key.
+8. Multi-stage Dockerfile copy dependencies sang runtime image va chay bang non-root user.
+9. Container doc port tu `${PORT}` cua Railway, fallback ve `8000` khi chay local.
+10. Frontend dark theme duoc FastAPI phuc vu tai `/` va goi API cung origin.
+11. Railway health check dung `/ready` de kiem tra kha nang phuc vu request.
+
+### Exercise 6.2: Local verification
+
+Automated tests:
+
+```powershell
+cd 06-lab-complete
+python -m unittest -v test_agent.py
+```
+
+Ket qua: **4 tests passed**, bao gom health check, authentication, question
+validation, multi-turn conversation va history.
+
+Docker verification:
+
+```powershell
+docker compose config --quiet
+docker compose build agent
+```
+
+Ket qua: Compose configuration hop le va image `06-lab-complete-agent` build
+thanh cong.
+
+### Exercise 6.3: Railway deployment
+
+Final lab public URL:
+
+https://day12ha-tang-cloudvadeployment-production-b1b6.up.railway.app/
+
+Ket qua kiem tra ngay 12/06/2026:
+
+```text
+GET /health -> HTTP 200
+{"status":"ok",...}
+
+GET /ready -> HTTP 200
+{"ready":true,"storage":"memory"}
+```
+
+Service va frontend hien truy cap duoc cong khai qua HTTPS. Tuy nhien ket qua
+`"storage":"memory"` cho thay Railway app chua ket noi Redis va dang dung
+fallback in-memory. De deployment dat dung yeu cau stateless, can them Redis
+service vao cung Railway project va dat bien ung dung:
+
+```env
+REDIS_URL=${{Redis.REDIS_URL}}
+```
+
+Sau khi redeploy, `/ready` can tra:
+
+```json
+{"ready": true, "storage": "redis"}
+```
+
+### Discussion and production notes
+
+1. Khong commit `.env.local`; chi commit `.env.example` khong chua secret that.
+2. `AGENT_API_KEY` production phai khac `dev-secret-key` va duoc luu trong Railway Variables.
+3. Frontend va API dung cung mot Railway domain, nen JavaScript dung relative URL thay vi hardcode `localhost`.
+4. Redis la shared state can thiet khi Railway restart container hoac scale thanh nhieu replicas.
+5. `/health` chi xac nhan process con song; `/ready` dung de xac nhan dependency can thiet da san sang.
+
+### Checkpoint 6
+
+- [x] Final agent source code hoan chinh.
+- [x] API key authentication.
+- [x] Rate limiting va monthly cost guard.
+- [x] Health, readiness va structured logging.
+- [x] Multi-stage Docker image va non-root runtime.
+- [x] Local tests passed va Docker image build thanh cong.
+- [x] Public Railway URL hoat dong.
+- [ ] Railway deployment ket noi Redis; hien `/ready` dang bao `storage=memory`.
